@@ -1,5 +1,3 @@
-// server.js
-
 require("dotenv").config();
 const express = require("express");
 const passport = require('passport');
@@ -12,6 +10,7 @@ const webRouter = require("./routes/webRoutes");
 
 require("./middleware/fbauth");
 require("./middleware/googleauth");
+require("./middleware/githubauth");
 
 app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true }));
 app.use(passport.initialize());

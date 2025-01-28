@@ -28,18 +28,23 @@ const upload = multer({
 });
 
 
-
 router.get('/auth/facebook', passport.authenticate('facebook', { scope: ['email'] }));
 router.get('/auth/facebook/callback', passport.authenticate('facebook', { failureRedirect: '/login' }),
   userController.facebookSignup
 );
 router.get('/auth/google',
   passport.authenticate('google', { scope: ['profile' , 'email'] }));
-
 router.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
   userController.googleSignup
   );
+
+router.get("/auth/github", passport.authenticate("github", { scope: ["user:email"] }));
+
+router.get(
+  "/auth/github/callback",
+  passport.authenticate("github", { failureRedirect: "/login" }),userController.githubSignup
+);
 
 router.post("/signup" ,upload.single('image'), SignUpValidation , userController.signup);
 router.post("/login" , loginValidation , userController.login);

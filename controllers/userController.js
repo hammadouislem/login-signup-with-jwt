@@ -79,6 +79,9 @@ const login = (req, res) => {
   if (req.body.googleId) {
     return handleGoogleLogin(req, res);
   }
+  if (req.body.githubId) {
+    return handleGithubLogin(req, res);
+  }
 
   return handleEmailLogin(req, res);
 };
@@ -119,6 +122,39 @@ const handleFacebookLogin = (req, res) => {
 
 const handleGoogleLogin = (req, res) => {
   db.query("SELECT * FROM users WHERE googleId = ?", [req.body.googleId], async (err, result) => {
+    if (err) {
+      return res.status(500).send({ msg: err });
+    }
+
+    if (result && result.length > 0) {
+      if (result[0].is_verified === 0) {
+        return res.status(400).json({ message: "Please verify your email address" });
+      }
+
+      const token = jwt.sign(
+        { id: result[0].id, is_admin: result[0].is_admin },
+        JWT_SECRET,
+        { expiresIn: "1h" }
+      );
+
+      return res.status(200).json({
+        msg: "Logged in successfully",
+        token,
+        user: {
+          id: result[0].id,
+          name: result[0].name,
+          email: result[0].email,
+          image: result[0].image,
+          is_admin: result[0].is_admin,
+        },
+      });
+    } else {
+      return res.status(400).json({ message: "User not found, please sign up first" });
+    }
+  });
+};
+const handleGithubLogin = (req, res) => {
+  db.query("SELECT * FROM users WHERE githubId = ?", [req.body.githubId], async (err, result) => {
     if (err) {
       return res.status(500).send({ msg: err });
     }
@@ -343,6 +379,73 @@ const googleSignup = async (req, res) => {
   });
 };
 
+const githubSignup = async (req, res) => {
+  const user = req.user;
+
+  db.query("SELECT * FROM users WHERE googleId = ?", [user.githubId], async (err, result) => {
+    if (err) {
+      return res.status(500).send({ msg: err });
+    }
+
+    if (result && result.length > 0) {
+      const token = jwt.sign(
+        { id: result[0].id, is_admin: result[0].is_admin },
+        JWT_SECRET,
+        { expiresIn: "1h" }
+      );
+
+      return res.status(200).json({
+        msg: "Logged in successfully",
+        token,
+        user: {
+          id: result[0].id,
+          name: result[0].name,
+          email: result[0].email,
+          image: result[0].image,
+          is_admin: result[0].is_admin,
+        },
+      });
+    } else {
+      const randomToken = randomstring.generate();
+      db.query("INSERT INTO users SET ?", {
+        name: user.name,
+        email: user.email,
+        githubId: user.githubId,
+        image: user.image || "default-image.jpg",
+        token: randomToken,
+        is_verified: 0,
+        password: "default-password" ,
+      }, (err, result) => {
+        if (err) {
+          return res.status(500).send({ msg: err });
+        }
+
+        let mailSubject = "Email Verification!";
+        let content = `<p>Hi ${user.name},<br/>Please <a href="http://localhost:3000/mail-verification?token=${randomToken}">verify</a> your email address.</p>`;
+        sendMail(user.email, mailSubject, content);
+
+        const token = jwt.sign(
+          { id: result.insertId, is_admin: 0 },
+          JWT_SECRET,
+          { expiresIn: "1h" }
+        );
+
+        return res.status(201).json({
+          msg: "User created successfully. Please check your email to verify.",
+          token,
+          user: {
+            id: result.insertId,
+            name: user.name,
+            email: user.email,
+            image: user.image || "default-image.jpg",
+            is_admin: 0,
+          },
+        });
+      });
+    }
+  });
+};
+
 
 
 module.exports = {
@@ -351,5 +454,6 @@ module.exports = {
   login,
   getUser,
   facebookSignup,
-  googleSignup
+  googleSignup,
+  githubSignup
 };
