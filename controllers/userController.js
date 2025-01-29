@@ -2,6 +2,7 @@ const {validationResult} = require("express-validator");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("../config/dbConnection");
+const flash = require('connect-flash');
 
 const randomstring = require("randomstring");
 const sendMail = require('../helpers/sendMail');
@@ -446,6 +447,96 @@ const githubSignup = async (req, res) => {
   });
 };
 
+const forgetpassword = (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  db.query("SELECT * FROM users WHERE email = ?", [req.body.email], (err, result) => {
+    if (err) {
+      return res.status(500).send({ msg: err });
+    }
+
+    if (result && result.length > 0) {
+      const resetToken = randomstring.generate();
+      const mailSubject = "Reset Password!";
+      const content = `<p>Hi ${result[0].name},<br/>Please <a href="http://localhost:3000/api/reset-password/${resetToken}">click here</a> to reset your password.</p>`;
+      sendMail(req.body.email, mailSubject, content);
+
+      db.query("UPDATE users SET reset_token = ? WHERE email = ?", [resetToken, req.body.email], (err, result) => {
+        if (err) {
+          return res.status(500).send({ msg: err });
+        }
+        return res.status(200).json({ message: "Please check your email to reset your password." });
+      });
+    } else {
+      return res.status(400).json({ message: "User not found" });
+    }
+  });
+};
+
+const renderResetPasswordForm = (req, res) => {
+  const { token } = req.params;
+
+  if (!token) {
+    console.log("Token is missing");
+    return res.render("404");
+  }
+
+  const messages = req.flash();
+
+  db.query("SELECT * FROM users WHERE reset_token = ? LIMIT 1", [token], (err, result) => {
+    if (err) {
+      console.log("Database error:", err);
+      return res.render("404");
+    }
+
+    if (result && result.length > 0) {
+      console.log("Token found, rendering reset-password form");
+      return res.render("reset-password", { token, messages });
+    } else {
+      console.log("Invalid or expired token");
+      return res.render("404");
+    }
+  });
+};
+
+const resetpassword = (req, res) => {
+  const { password, confirmPassword } = req.body;
+  const { token } = req.params;
+
+  if (password !== confirmPassword) {
+    req.flash('error_message', 'Passwords do not match.');
+    return res.redirect(`/api/reset-password/${token}`);
+  }
+
+  db.query("SELECT * FROM users WHERE reset_token = ? LIMIT 1", [token], async (err, result) => {
+    if (err) {
+      req.flash('error_message', 'There was an error with the request.');
+      return res.redirect(`/api/reset-password/${token}`);
+    }
+
+    if (result && result.length > 0) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      db.query("UPDATE users SET password = ?, reset_token = null WHERE reset_token = ?",
+        [hashedPassword, token],
+        (err, result) => {
+          if (err) {
+            req.flash('error_message', 'Error resetting password.');
+            return res.redirect(`/api/reset-password/${token}`);
+          }
+          req.flash('success_message', 'Password reset successfully.');
+          return res.render("message");
+        }
+      );
+    } else {
+      req.flash('error_message', 'Invalid token.');
+      return res.redirect(`/api/reset-password/${token}`);
+    }
+  });
+};
 
 
 module.exports = {
@@ -455,5 +546,8 @@ module.exports = {
   getUser,
   facebookSignup,
   googleSignup,
-  githubSignup
+  githubSignup,
+  forgetpassword,
+  resetpassword,
+  renderResetPasswordForm
 };

@@ -7,6 +7,8 @@ const BodyParser = require("body-parser");
 const app = express();
 const userRouter = require("./routes/userRoutes");
 const webRouter = require("./routes/webRoutes");
+const path = require("path");
+const flash = require("express-flash");
 
 require("./middleware/fbauth");
 require("./middleware/googleauth");
@@ -16,13 +18,14 @@ app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUniniti
 app.use(passport.initialize());
 app.use(passport.session());
 
+app.use(flash());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cors());
 app.set('view engine', 'ejs');
-app.set('views', './views');
+app.set("views", "./views");
 app.use(express.static('public'));
 app.use("/api", userRouter);
 app.use("/", webRouter);

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {SignUpValidation , loginValidation } = require("../helpers/Validation");
+const {SignUpValidation , loginValidation , forgetValidation } = require("../helpers/Validation");
 const userController = require("../controllers/userController");
 const path = require('path');
 const multer = require('multer');
@@ -49,6 +49,14 @@ router.get(
 router.post("/signup" ,upload.single('image'), SignUpValidation , userController.signup);
 router.post("/login" , loginValidation , userController.login);
 router.get("/user" , auth.isAuthorize , userController.getUser);
+
+
+router.post("/forget-password", forgetValidation, userController.forgetpassword);
+router.get("/reset-password/:token", userController.renderResetPasswordForm);
+router.post("/reset-password/:token", userController.resetpassword);
+
+
+
 
 
 module.exports = router;

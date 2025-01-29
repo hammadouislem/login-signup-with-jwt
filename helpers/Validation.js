@@ -14,6 +14,10 @@ exports.SignUpValidation = [
   }).withMessage('Please upload an image type PNG , JPG')
 ];
 exports.loginValidation = [
-  check('email','NPlease Enter a valid Email' ).isEmail().normalizeEmail({gmail_remove_dots: true}),
+  check('email','Please Enter a valid Email' ).isEmail().normalizeEmail({gmail_remove_dots: true}),
   check('password','¨Password is required' ).isLength({min: 6})
+];
+
+exports.forgetValidation = [
+  check('email','Please Enter a valid Email' ).isEmail().normalizeEmail({gmail_remove_dots: true}),
 ];
